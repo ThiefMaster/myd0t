@@ -1,0 +1,24 @@
+[alias]
+	# a compact one-line log view
+	lg = log --color=always --graph --pretty=tformat:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%ad) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative
+	# same, but with absolute dates
+	lga = log --color=always --graph --pretty=tformat:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%ad) %C(bold blue)<%an>%Creset' --abbrev-commit --date=iso
+	# when pulling from upstream, rebase is the way to go, so let's have an explicit alias for it
+	purr = pull --rebase
+	# when you know there's nothing local to rebase, be explicit about fast-forwarding
+	puff = pull --ff-only
+	# the branch you want to merge is already rebased, so let's bail out if we can't fast-forward
+	mff = merge --ff-only
+	# dealing with many remotes? let's sync quickly
+	fall = fetch --all
+	# this is super dirty, but great when you need to amend a commit often
+	pigamend = "!f(){ git add -u && git commit --amend --no-edit; }; f"
+[color]
+	ui = auto
+[core]
+	whitespace = trailing-space,space-before-tab
+	# use a custom pager that only pages if it doesn't fit in the terminal
+	pager = @@smartless@@ -R -M --shift 5 -+F -+X
+[push]
+	# i think this is the most straightforward default (use explicit refspecs for more complex cases)
+	default = current

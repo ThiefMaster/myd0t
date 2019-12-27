@@ -1,0 +1,26 @@
+#!/bin/bash
+
+n=0  # number of screen lines that should remain visible in addition to the content
+lines=
+newline='
+'
+LINES=$(tput lines)
+
+case $LINES in
+	''|*[!0-9]*) exec less "$@";;
+esac
+
+while [[ $n -lt $LINES ]] && IFS= read -r line; do
+	if [[ $n -eq 0 ]]; then
+		lines="$line"
+	else
+		lines="$lines$newline$line"
+	fi
+	let n++
+done
+
+if [[ $n -eq $LINES ]]; then
+	{ printf %s "$lines$newline"; exec cat; } | exec less "$@"
+else
+	printf %s "$lines$newline"
+fi

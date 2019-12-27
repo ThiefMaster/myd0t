@@ -1,0 +1,2 @@
+source @@zshenv@@
+[[ -f @@custom_zshenv@@ ]] && source @@custom_zshenv@@

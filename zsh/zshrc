@@ -1,0 +1,2 @@
+source @@zshrc@@
+[[ -f @@custom_zshrc@@ ]] && source @@custom_zshrc@@
