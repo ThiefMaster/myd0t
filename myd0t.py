@@ -75,8 +75,12 @@ def install_tmux(base_dir, target_dir, user_install, tmux_version_major):
     custom_config_path = target_dir / 'tmux.user.conf'
     if not custom_config_path.exists():
         custom_config_path.touch()
-    replace_placeholders(target_path, custom_config_path=custom_config_path)
-    # TODO: smartsplit script
+    smartsplit_path = target_dir / 'bin' / 'tmux-smartsplit'
+    replace_placeholders(
+        target_path,
+        custom_config_path=custom_config_path,
+        smartsplit=smartsplit_path,
+    )
 
 
 def install_zsh(base_dir, target_dir, user_install):

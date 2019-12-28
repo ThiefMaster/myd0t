@@ -1,0 +1,40 @@
+#!/bin/bash
+# tmux-smartsplit
+# open a new tmux (split-)window which will automatically
+# continue the existing ssh session if one exists
+
+PID=$(tmux display-message -p -F "#{pane_pid}")
+if [[ $(readlink /proc/$PID/exe) == $(which ssh) ]]; then
+	# the pane itself is running ssh
+	CHILD=$PID
+else
+	# the pane is running something (likely a shell) that's running ssh,
+	# so we look for an ssh child process of the pane.
+	CHILD=$(cat /proc/[0-9]*/stat | awk '$2 == "(ssh)" && $4 == '$PID' {print $1; exit}')
+fi
+
+CMD=""
+if [[ "$CHILD" != "" ]]; then
+	# convert null-separated cmdline to shell command string
+	CMD="$(python3 -c 'import shlex, sys; parts = list(filter(None, open(sys.argv[1]).read().split("\0"))); print(" ".join(map(shlex.quote, parts)))' "/proc/$CHILD/cmdline")"
+fi
+
+cd "$(tmux display-message -p '#{pane_current_path}')"
+case "$1" in
+	h)
+		tmux split-window -h -c "#{pane_current_path}"
+		;;
+	v)
+		tmux split-window -v -c "#{pane_current_path}"
+		;;
+	w)
+		tmux new-window -c "#{pane_current_path}"
+		;;
+esac
+
+if [[ "$CMD" != "" ]]; then
+	ID=$(tmux display-message -p -F "#{pane_id}")
+	tmux send-keys -t "$ID" C-l
+	tmux send-keys -l -t "$ID" " $CMD"
+	tmux send-keys -t "$ID" Enter
+fi
