@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from colorama_ansi import Fore, clear_line
+
 DISTROS = {
     'gentoo': {
         'install': ['emerge', '-avn'],
@@ -50,6 +52,23 @@ def guess_distro():
         return 'arch'
 
 
+def check_programs(distro, programs):
+    missing = {p for p in programs if not shutil.which(p)}
+    colors = {p: Fore.LIGHTRED if p in missing else Fore.LIGHTGREEN for p in programs}
+    result = {f'{colors[p]}{p}{Fore.RESET}' for p in programs}
+    print(f'required packages: {", ".join(sorted(result))}')
+    if not missing:
+        return True
+    try:
+        install_packages(distro, missing)
+    except KeyboardInterrupt:
+        clear_line()
+        print(f'\r{Fore.LIGHTRED}package installation aborted{Fore.RESET}')
+        return False
+    else:
+        return check_programs(distro, programs)
+
+
 def install_packages(distro, packages):
     try:
         distro_data = DISTROS[distro]
@@ -58,19 +77,21 @@ def install_packages(distro, packages):
         for p in packages:
             print(f' - {p}')
         print()
-        input('press ENTER once you are done')
+        input('press ENTER once you are done\n')
         return
     distro_packages = [distro_data['packages'][x] for x in packages]
     args = [*distro_data['install'], *distro_packages]
     cmdline = ' '.join(map(shlex.quote, args))
     if os.geteuid() != 0:
         print('run the following command as root to install missing packages:\n')
-        print('    ' + cmdline)
+        print(f'    {Fore.LIGHTWHITE}{cmdline}{Fore.RESET}')
         print()
-        input('press ENTER once you are done')
+        input('press ENTER once you are done\n')
     else:
-        print(f'i will run `{cmdline}` to install missing packages')
-        input('press ENTER to continue')
+        print(
+            f'i will run {Fore.LIGHTWHITE}{cmdline}{Fore.RESET} to install missing packages'
+        )
+        input('press ENTER to continue\n')
         try:
             subprocess.check_call(args)
         except subprocess.CalledProcessError:
@@ -80,55 +101,29 @@ def install_packages(distro, packages):
 def check_root(user_install):
     print('root? ', end='')
     if user_install:
-        print('not needed')
+        print(f'{Fore.YELLOW}not needed{Fore.RESET}')
         return True
     if os.geteuid() != 0:
-        print('FAILED')
+        print(f'{Fore.LIGHTRED}FAILED{Fore.RESET}')
         print('re-run with `sudo` or use `--user` to install everything locally')
         print('if this is your machine use `sudo`; otherwise use `--user`')
         return False
-    print('OK')
+    print(f'{Fore.LIGHTGREEN}OK{Fore.RESET}')
     return True
 
 
-def check_tmux():
-    print('tmux? ', end='')
+def is_tmux_2():
     try:
         output = subprocess.check_output(['tmux', '-V']).decode().strip()
     except (OSError, subprocess.CalledProcessError):
         print('FAILED')
         return None
-    # just get the major version number, it's all we need
-    rv = int(re.match(r'tmux (\d+)', output).group(1))
-    print(output.split(' ')[1])
-    return rv
+    return re.match(r'tmux (\d+)', output).group(1) == '2'
 
 
-def check_zsh():
-    print('zsh? ', end='')
-    try:
-        subprocess.check_output(['zsh', '--version']).decode().strip()
-    except (OSError, subprocess.CalledProcessError):
-        print('FAILED')
-        return False
-    print('OK')
-    return True
-
-
-def check_git():
-    print('git? ', end='')
-    try:
-        subprocess.check_output(['git', '--version']).decode().strip()
-    except (OSError, subprocess.CalledProcessError):
-        print('FAILED')
-        return False
-    print('OK')
-    return True
-
-
-def install_tmux(base_dir, target_dir, user_install, tmux_version_major):
+def install_tmux(base_dir, target_dir, user_install):
     print('- tmux')
-    source_file = 'tmux.conf' if tmux_version_major >= 3 else 'tmux-legacy.conf'
+    source_file = 'tmux.conf' if not is_tmux_2() else 'tmux-legacy.conf'
     target_path = target_dir / 'tmux.conf'
     tmux_config_path = Path(
         '~/.tmux.conf' if user_install else '/etc/tmux.conf'
@@ -253,27 +248,8 @@ def main():
     print('running some checks...')
     if not check_root(user_install):
         return 1
-    for i in range(2):
-        failed_packages = set()
-        if not check_git():
-            failed_packages.add('git')
-        if not check_zsh():
-            failed_packages.add('zsh')
-        tmux_version_major = check_tmux()
-        if tmux_version_major is None:
-            failed_packages.add('tmux')
-
-        if not failed_packages:
-            break
-
-        if i > 0:
-            print('required packages are still missing')
-            return 1
-        try:
-            install_packages(distro, failed_packages)
-        except KeyboardInterrupt:
-            print('\rpackage installation aborted')
-            return 1
+    if not check_programs(distro, ['git', 'zsh', 'tmux']):
+        return 1
 
     print()
     if user_install:
@@ -293,7 +269,7 @@ def main():
     shutil.copytree(base_dir / 'bin', target_dir / 'bin')
 
     print('installing configs...')
-    install_tmux(base_dir, target_dir, user_install, tmux_version_major)
+    install_tmux(base_dir, target_dir, user_install)
     install_zsh(base_dir, target_dir, user_install)
     install_git(base_dir, target_dir, user_install)
 
