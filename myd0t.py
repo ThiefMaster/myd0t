@@ -2,10 +2,79 @@
 
 import os
 import re
+import shlex
+import shutil
 import subprocess
 import sys
-import shutil
 from pathlib import Path
+
+DISTROS = {
+    'gentoo': {
+        'install': ['emerge', '-avn'],
+        'packages': {
+            'git': 'dev-vcs/git',
+            'zsh': 'app-shells/zsh',
+            'tmux': 'app-misc/tmux',
+        },
+    },
+    'arch': {
+        'install': ['pacman', '-S'],
+        'packages': {'git': 'git', 'zsh': 'zsh', 'tmux': 'tmux',},
+    },
+    'fedora': {
+        'install': ['dnf', 'install'],
+        'packages': {'git': 'git', 'zsh': 'zsh', 'tmux': 'tmux',},
+    },
+    'centos': {
+        'install': ['yum', 'install'],
+        'packages': {'git': 'git', 'zsh': 'zsh', 'tmux': 'tmux',},
+    },
+    'ubuntu': {
+        'install': ['apt', 'install'],
+        'packages': {'git': 'git', 'zsh': 'zsh', 'tmux': 'tmux',},
+    },
+    'debian': {
+        'install': ['apt', 'install'],
+        'packages': {'git': 'git', 'zsh': 'zsh', 'tmux': 'tmux',},
+    },
+}
+
+
+def guess_distro():
+    if os.path.exists('/etc/os-release'):
+        return subprocess.check_output(
+            ['sh', '-c', '. /etc/os-release; echo -n $ID']
+        ).decode()
+    elif os.path.exists('/etc/arch-release'):
+        # at least the docker image doesn't have /etc/os-release
+        return 'arch'
+
+
+def install_packages(distro, packages):
+    try:
+        distro_data = DISTROS[distro]
+    except KeyError:
+        print('please install the following packages:\n')
+        for p in packages:
+            print(f' - {p}')
+        print()
+        input('press ENTER once you are done')
+        return
+    distro_packages = [distro_data['packages'][x] for x in packages]
+    args = [*distro_data['install'], *distro_packages]
+    cmdline = ' '.join(map(shlex.quote, args))
+    if os.geteuid() != 0:
+        print('run the following command as root to install missing packages:\n')
+        print('    ' + cmdline)
+        print()
+        input('press ENTER once you are done')
+    else:
+        print(f'i will run `{cmdline}` to install missing packages')
+        input('press ENTER to continue')
+        try:
+            subprocess.check_call(args)
+        except subprocess.CalledProcessError:
+            print('non-zero exit code; installation likely failed')
 
 
 def check_root(user_install):
@@ -77,9 +146,7 @@ def install_tmux(base_dir, target_dir, user_install, tmux_version_major):
         custom_config_path.touch()
     smartsplit_path = target_dir / 'bin' / 'tmux-smartsplit'
     replace_placeholders(
-        target_path,
-        custom_config_path=custom_config_path,
-        smartsplit=smartsplit_path,
+        target_path, custom_config_path=custom_config_path, smartsplit=smartsplit_path,
     )
 
 
@@ -179,21 +246,34 @@ def main():
     user_install = '--user' in args
     base_dir = Path(__file__).absolute().parent
 
-    print('running some checks...')
-    failures = False
-    if not check_root(user_install):
-        failures = True
-    if not check_git():
-        failures = True
-    if not check_zsh():
-        failures = True
-    tmux_version_major = check_tmux()
-    if tmux_version_major is None:
-        failures = True
+    distro = guess_distro()
+    if distro not in DISTROS:
+        print(f'unknown distro: {distro}; cannot auto-install packages')
 
-    if failures:
-        print('some checks failed; fix the issues and try again')
+    print('running some checks...')
+    if not check_root(user_install):
         return 1
+    for i in range(2):
+        failed_packages = set()
+        if not check_git():
+            failed_packages.add('git')
+        if not check_zsh():
+            failed_packages.add('zsh')
+        tmux_version_major = check_tmux()
+        if tmux_version_major is None:
+            failed_packages.add('tmux')
+
+        if not failed_packages:
+            break
+
+        if i > 0:
+            print('required packages are still missing')
+            return 1
+        try:
+            install_packages(distro, failed_packages)
+        except KeyboardInterrupt:
+            print('\rpackage installation aborted')
+            return 1
 
     print()
     if user_install:
