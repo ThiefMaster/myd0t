@@ -123,13 +123,14 @@ def is_tmux_2():
 
 def install_tmux(base_dir, target_dir, user_install):
     print('- tmux')
+    target_dir.mkdir(exist_ok=True)
     source_file = 'tmux.conf' if not is_tmux_2() else 'tmux-legacy.conf'
     target_path = target_dir / 'tmux.conf'
     tmux_config_path = Path(
         '~/.tmux.conf' if user_install else '/etc/tmux.conf'
     ).expanduser()
     # copy to myd0t config dir
-    shutil.copy(base_dir / 'tmux' / source_file, target_path)
+    shutil.copy(base_dir / source_file, target_path)
     # delete existing config (hopefully not something the user still needed)
     if tmux_config_path.exists() or tmux_config_path.is_symlink():
         tmux_config_path.unlink()
@@ -147,8 +148,8 @@ def install_tmux(base_dir, target_dir, user_install):
 
 def install_zsh(base_dir, target_dir, user_install):
     print('- zsh')
-    target_path = target_dir / 'zsh'
-    tm_config_path = target_path / 'config-tm'
+    target_dir.mkdir(exist_ok=True)
+    tm_config_path = target_dir / 'config-tm'
     if user_install:
         zshrc_path = Path('~/.zshrc').expanduser()
         zshenv_path = None
@@ -176,33 +177,33 @@ def install_zsh(base_dir, target_dir, user_install):
         zshenv_path.unlink()
     # copy to myd0t config dir
     shutil.copytree(
-        base_dir / 'zsh' / 'config-tm',
+        base_dir / 'config-tm',
         tm_config_path,
         ignore=lambda p, n: {'.git', '.gitignore', '.gitmodules', 'README.md'},
     )
     # link to our config files
-    zshrc_path.symlink_to(target_path / 'zshrc')
+    zshrc_path.symlink_to(target_dir / 'zshrc')
     if zshenv_path:
-        zshenv_path.symlink_to(target_path / 'zshenv')
+        zshenv_path.symlink_to(target_dir / 'zshenv')
     # create override files in case the user wants to add more stuff
-    custom_zshrc_path = target_path / 'zshrc.user'
+    custom_zshrc_path = target_dir / 'zshrc.user'
     if not custom_zshrc_path.exists():
         custom_zshrc_path.touch()
     if zshenv_path:
-        custom_zshenv_path = target_path / 'zshenv.user'
+        custom_zshenv_path = target_dir / 'zshenv.user'
         if not custom_zshenv_path.exists():
             custom_zshenv_path.touch()
     # copy the configs our symlinks point to
     replace_placeholders(
-        target_path / 'zshrc',
-        base_dir / 'zsh' / 'zshrc',
+        target_dir / 'zshrc',
+        base_dir / 'zshrc',
         zshrc=tm_config_path / '.zshrc',
         custom_zshrc=custom_zshrc_path,
     )
     if zshenv_path:
         replace_placeholders(
-            target_path / 'zshenv',
-            base_dir / 'zsh' / 'zshenv',
+            target_dir / 'zshenv',
+            base_dir / 'zshenv',
             zshenv=tm_config_path / '.zshenv',
             custom_zshenv=custom_zshenv_path,
         )
@@ -210,6 +211,7 @@ def install_zsh(base_dir, target_dir, user_install):
 
 def install_git(base_dir, target_dir, user_install):
     print('- git')
+    target_dir.mkdir(exist_ok=True)
     target_file_path = target_dir / 'gitconfig'
     git_config_arg = '--global' if user_install else '--system'
     smartless_path = target_dir / 'bin' / 'smartless'
@@ -257,8 +259,8 @@ def main():
     else:
         # make sure files we create/copy are world-readable
         os.umask(0o022)
-        target_dir = Path('/etc/myd0t')
-    print(f'installing to {target_dir}')
+        target_dir = Path('/opt/myd0t')
+    print(f'installing to {Fore.LIGHTWHITE}{target_dir}{Fore.RESET}')
     target_dir.mkdir(parents=True, exist_ok=True)
 
     # bin is not tied to any specific application (even though it could be),
@@ -269,9 +271,12 @@ def main():
     shutil.copytree(base_dir / 'bin', target_dir / 'bin')
 
     print('installing configs...')
-    install_tmux(base_dir, target_dir, user_install)
-    install_zsh(base_dir, target_dir, user_install)
-    install_git(base_dir, target_dir, user_install)
+    etc_path = base_dir / 'etc'
+    target_etc_path = target_dir / 'etc'
+    target_etc_path.mkdir(exist_ok=True)
+    install_tmux(etc_path / 'tmux', target_etc_path / 'tmux', user_install)
+    install_zsh(etc_path / 'zsh', target_etc_path / 'zsh', user_install)
+    install_git(etc_path / 'git', target_etc_path / 'git', user_install)
 
     # TODO: offer to chsh
     # TODO: offer to set default editor to vim
