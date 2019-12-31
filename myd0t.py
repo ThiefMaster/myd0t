@@ -17,27 +17,40 @@ DISTROS = {
             'git': 'dev-vcs/git',
             'zsh': 'app-shells/zsh',
             'tmux': 'app-misc/tmux',
+            'vim': 'app-editors/vim',
         },
+        'set_editor': ['eselect', 'editor', 'set', 'vi'],
+        'vimrc': '/etc/vim/vimrc.local',
     },
     'arch': {
         'install': ['pacman', '-S'],
-        'packages': {'git': 'git', 'zsh': 'zsh', 'tmux': 'tmux',},
+        'packages': {'git': 'git', 'zsh': 'zsh', 'tmux': 'tmux', 'vim': 'vim'},
+        'set_editor': None,
+        'vimrc': '/etc/vimrc',
     },
     'fedora': {
         'install': ['dnf', 'install'],
-        'packages': {'git': 'git', 'zsh': 'zsh', 'tmux': 'tmux',},
+        'packages': {'git': 'git', 'zsh': 'zsh', 'tmux': 'tmux', 'vim': 'vim'},
+        'set_editor': None,
+        'vimrc': '/etc/vimrc',
     },
     'centos': {
         'install': ['yum', 'install'],
-        'packages': {'git': 'git', 'zsh': 'zsh', 'tmux': 'tmux',},
+        'packages': {'git': 'git', 'zsh': 'zsh', 'tmux': 'tmux', 'vim': 'vim'},
+        'set_editor': None,
+        'vimrc': '/etc/vimrc',
     },
     'ubuntu': {
         'install': ['apt', 'install'],
-        'packages': {'git': 'git', 'zsh': 'zsh', 'tmux': 'tmux',},
+        'packages': {'git': 'git', 'zsh': 'zsh', 'tmux': 'tmux', 'vim': 'vim'},
+        'set_editor': ['update-alternatives', '--set', 'editor', '/usr/bin/vim.basic'],
+        'vimrc': '/etc/vim/vimrc.local',
     },
     'debian': {
         'install': ['apt', 'install'],
-        'packages': {'git': 'git', 'zsh': 'zsh', 'tmux': 'tmux',},
+        'packages': {'git': 'git', 'zsh': 'zsh', 'tmux': 'tmux', 'vim': 'vim'},
+        'set_editor': ['update-alternatives', '--set', 'editor', '/usr/bin/vim.basic'],
+        'vimrc': '/etc/vim/vimrc.local',
     },
 }
 
@@ -235,7 +248,69 @@ def replace_placeholders(file: Path, infile: Path = None, **placeholders):
     data = (infile or file).read_text()
     for name, value in placeholders.items():
         data = data.replace(f'@@{name}@@', str(value))
-    file.write_text(data)
+    if file is not None:
+        file.write_text(data)
+    return data
+
+
+def install_editor(base_dir, target_dir, user_install, distro):
+    print('- editor [vim, what else]')
+    target_dir.mkdir(exist_ok=True)
+    target_file_path = target_dir / 'vimrc'
+
+    # copy vim config
+    shutil.copy(base_dir / 'vimrc', target_file_path)
+
+    try:
+        distro_data = DISTROS[distro]
+    except KeyError:
+        distro_data = None
+        vimrc_msg = ''
+        if not user_install:
+            vimrc_msg = ' and load {target_file_path}'
+        print(
+            f'{Fore.YELLOW}unknown distro; you need to set the default '
+            'editor{vimrcmsg} manually{Fore.RESET}'
+        )
+    else:
+        # set default editor in environment
+        env_file_path = target_dir / 'editor-env.sh'
+        shutil.copy(base_dir / 'editor-env.sh', env_file_path)
+        profile_d_path = Path('/etc/profile.d/myd0t-editor.sh')
+        if profile_d_path.exists() or profile_d_path.is_symlink():
+            profile_d_path.unlink()
+        profile_d_path.symlink_to(env_file_path)
+        # run custom command to set the editor
+        set_editor = distro_data['set_editor']
+        if set_editor:
+            subprocess.check_call(set_editor, stdout=subprocess.DEVNULL)
+
+    vimrc_path = None
+    if user_install:
+        vimrc_path = Path('~/.vimrc').expanduser()
+    elif distro_data:
+        vimrc_path = Path(distro_data['vimrc'])
+
+    colors_path = Path(
+        '~/.vim/colors' if user_install else '/usr/share/vim/vimfiles/colors'
+    ).expanduser()
+    colors_path.mkdir(parents=True, exist_ok=True)
+    shutil.copy(base_dir / 'darcula_myd0t.vim', colors_path / 'darcula_myd0t.vim')
+
+    if vimrc_path is not None:
+        loader = replace_placeholders(None, base_dir / 'loader', vimrc=target_file_path)
+        if not vimrc_path.exists() or not vimrc_path.read_text().strip():
+            # vimrc doesn't exist or is empty - just use ours
+            vimrc_path.write_text(loader)
+        else:
+            # append our loader to the existing file
+            old_vimrc = vimrc_path.read_text().rstrip()
+            if loader.strip() in old_vimrc:
+                pass
+            elif str(target_file_path) in old_vimrc:
+                print(f'  {vimrc_path.name} has already been patched (but modified)')
+            else:
+                vimrc_path.write_text(f'{old_vimrc}\n\n{loader}'.strip())
 
 
 def main():
@@ -250,7 +325,7 @@ def main():
     print('running some checks...')
     if not check_root(user_install):
         return 1
-    if not check_programs(distro, ['git', 'zsh', 'tmux']):
+    if not check_programs(distro, ['git', 'zsh', 'tmux', 'vim']):
         return 1
 
     print()
@@ -277,9 +352,10 @@ def main():
     install_tmux(etc_path / 'tmux', target_etc_path / 'tmux', user_install)
     install_zsh(etc_path / 'zsh', target_etc_path / 'zsh', user_install)
     install_git(etc_path / 'git', target_etc_path / 'git', user_install)
+    if not user_install:
+        install_editor(etc_path / 'vim', target_etc_path / 'vim', user_install, distro)
 
     # TODO: offer to chsh
-    # TODO: offer to set default editor to vim
     return 0
 
 

@@ -1,0 +1,5 @@
+" Load the default myd0t vim config.
+" If you want to override anything it does, just do it afterwards.
+" If you want to disable the config altogether, comment out the
+" next line; it will not be uncommented when re-installing myd0t
+source @@vimrc@@

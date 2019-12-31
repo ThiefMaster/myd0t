@@ -1,0 +1,3 @@
+set nowrap modeline t_Co=256 bg=dark
+colorscheme darcula_myd0t
+autocmd BufReadPost COMMIT_EDITMSG exe "normal! gg"
