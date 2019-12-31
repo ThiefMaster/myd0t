@@ -222,12 +222,12 @@ def install_zsh(base_dir, target_dir, user_install):
         )
 
 
-def install_git(base_dir, target_dir, user_install):
+def install_git(base_dir, target_dir, target_bin_path, user_install):
     print('- git')
     target_dir.mkdir(exist_ok=True)
     target_file_path = target_dir / 'gitconfig'
     git_config_arg = '--global' if user_install else '--system'
-    smartless_path = target_dir / 'bin' / 'smartless'
+    smartless_path = target_bin_path / 'smartless'
     replace_placeholders(
         target_file_path, base_dir / 'gitconfig', smartless=smartless_path
     )
@@ -343,7 +343,7 @@ def main():
     target_bin_path = target_dir / 'bin'
     if target_bin_path.exists():
         shutil.rmtree(target_bin_path)
-    shutil.copytree(base_dir / 'bin', target_dir / 'bin')
+    shutil.copytree(base_dir / 'bin', target_bin_path)
 
     print('installing configs...')
     etc_path = base_dir / 'etc'
@@ -351,7 +351,7 @@ def main():
     target_etc_path.mkdir(exist_ok=True)
     install_tmux(etc_path / 'tmux', target_etc_path / 'tmux', user_install)
     install_zsh(etc_path / 'zsh', target_etc_path / 'zsh', user_install)
-    install_git(etc_path / 'git', target_etc_path / 'git', user_install)
+    install_git(etc_path / 'git', target_etc_path / 'git', target_bin_path, user_install)
     if not user_install:
         install_editor(etc_path / 'vim', target_etc_path / 'vim', user_install, distro)
 
