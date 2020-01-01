@@ -134,7 +134,7 @@ def is_tmux_2():
     return re.match(r'tmux (\d+)', output).group(1) == '2'
 
 
-def install_tmux(base_dir, target_dir, user_install):
+def install_tmux(base_dir, target_dir, target_bin_path, user_install):
     print('- tmux')
     target_dir.mkdir(exist_ok=True)
     source_file = 'tmux.conf' if not is_tmux_2() else 'tmux-legacy.conf'
@@ -153,7 +153,7 @@ def install_tmux(base_dir, target_dir, user_install):
     custom_config_path = target_dir / 'tmux.user.conf'
     if not custom_config_path.exists():
         custom_config_path.touch()
-    smartsplit_path = target_dir / 'bin' / 'tmux-smartsplit'
+    smartsplit_path = target_bin_path / 'tmux-smartsplit'
     replace_placeholders(
         target_path, custom_config_path=custom_config_path, smartsplit=smartsplit_path,
     )
@@ -352,7 +352,9 @@ def main():
     etc_path = base_dir / 'etc'
     target_etc_path = target_dir / 'etc'
     target_etc_path.mkdir(exist_ok=True)
-    install_tmux(etc_path / 'tmux', target_etc_path / 'tmux', user_install)
+    install_tmux(
+        etc_path / 'tmux', target_etc_path / 'tmux', target_bin_path, user_install
+    )
     install_zsh(etc_path / 'zsh', target_etc_path / 'zsh', user_install)
     install_git(
         etc_path / 'git', target_etc_path / 'git', target_bin_path, user_install
