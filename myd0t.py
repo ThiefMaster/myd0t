@@ -211,6 +211,7 @@ def install_zsh(base_dir, target_dir, user_install):
         target_dir / 'zshrc',
         base_dir / 'zshrc',
         zshrc=tm_config_path / '.zshrc',
+        editor_env=target_dir.parent / 'vim' / 'editor-env.sh',
         custom_zshrc=custom_zshrc_path,
     )
     if zshenv_path:
@@ -276,14 +277,16 @@ def install_editor(base_dir, target_dir, user_install, distro):
         # set default editor in environment
         env_file_path = target_dir / 'editor-env.sh'
         shutil.copy(base_dir / 'editor-env.sh', env_file_path)
-        profile_d_path = Path('/etc/profile.d/myd0t-editor.sh')
-        if profile_d_path.exists() or profile_d_path.is_symlink():
-            profile_d_path.unlink()
-        profile_d_path.symlink_to(env_file_path)
-        # run custom command to set the editor
-        set_editor = distro_data['set_editor']
-        if set_editor:
-            subprocess.check_call(set_editor, stdout=subprocess.DEVNULL)
+        # in case of a user install we rely on the shell config
+        if not user_install:
+            profile_d_path = Path('/etc/profile.d/myd0t-editor.sh')
+            if profile_d_path.exists() or profile_d_path.is_symlink():
+                profile_d_path.unlink()
+            profile_d_path.symlink_to(env_file_path)
+            # run custom command to set the editor
+            set_editor = distro_data['set_editor']
+            if set_editor:
+                subprocess.check_call(set_editor, stdout=subprocess.DEVNULL)
 
     vimrc_path = None
     if user_install:
@@ -351,9 +354,10 @@ def main():
     target_etc_path.mkdir(exist_ok=True)
     install_tmux(etc_path / 'tmux', target_etc_path / 'tmux', user_install)
     install_zsh(etc_path / 'zsh', target_etc_path / 'zsh', user_install)
-    install_git(etc_path / 'git', target_etc_path / 'git', target_bin_path, user_install)
-    if not user_install:
-        install_editor(etc_path / 'vim', target_etc_path / 'vim', user_install, distro)
+    install_git(
+        etc_path / 'git', target_etc_path / 'git', target_bin_path, user_install
+    )
+    install_editor(etc_path / 'vim', target_etc_path / 'vim', user_install, distro)
 
     # TODO: offer to chsh
     return 0

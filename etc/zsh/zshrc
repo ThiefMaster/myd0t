@@ -1,2 +1,3 @@
 source @@zshrc@@
+source @@editor_env@@
 [[ -f @@custom_zshrc@@ ]] && source @@custom_zshrc@@
