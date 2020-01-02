@@ -320,10 +320,7 @@ def main():
     args = sys.argv[1:]
     user_install = '--user' in args
     base_dir = Path(__file__).absolute().parent
-
     distro = guess_distro()
-    if distro not in DISTROS:
-        print(f'unknown distro: {distro}; cannot auto-install packages')
 
     print('running some checks...')
     if not check_root(user_install):
