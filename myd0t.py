@@ -316,6 +316,22 @@ def install_editor(base_dir, target_dir, user_install, distro):
                 vimrc_path.write_text(f'{old_vimrc}\n\n{loader}'.strip())
 
 
+def install_dconf(base_dir: Path):
+    print('- terminal config')
+    if not shutil.which('gnome-terminal'):
+        print('gnome-terminal not installed; skipping terminal config')
+        return
+    if not shutil.which('dconf'):
+        print('dconf not installed; skipping terminal config')
+        return
+
+    terminal_conf = (base_dir / 'gnome-terminal.ini').read_bytes()
+    try:
+        subprocess.run(['dconf', 'load', '/org/gnome/terminal/'], input=terminal_conf)
+    except subprocess.CalledProcessError:
+        print('non-zero exit code; loading terminal config likely failed')
+
+
 def main():
     args = sys.argv[1:]
     user_install = '--user' in args
@@ -357,6 +373,8 @@ def main():
         etc_path / 'git', target_etc_path / 'git', target_bin_path, user_install
     )
     install_editor(etc_path / 'vim', target_etc_path / 'vim', user_install, distro)
+    if user_install:
+        install_dconf(base_dir / 'dconf')
 
     # TODO: offer to chsh
     return 0
