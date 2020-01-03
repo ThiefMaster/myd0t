@@ -557,7 +557,11 @@ def main():
                 f'Using sudo to become root. If this fails, you can run '
                 f'{Fore.LIGHTWHITE}{cmd}{Fore.RESET} as root manually'
             )
-            os.execlp('sudo', 'sudo', '-E', *cmd_args)
+            try:
+                os.execlp('sudo', 'sudo', '-E', *cmd_args)
+            except FileNotFoundError as exc:
+                print(f'{Fore.LIGHTRED}sudo failed: {Fore.RED}{exc}{Fore.RESET}')
+                return 1
     else:
         user_install, primary_user = args.user_install, args.user
 
