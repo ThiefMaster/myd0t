@@ -367,7 +367,7 @@ def get_install_mode():
             f'(you are {Fore.LIGHTRED}root{Fore.RESET})'
         )
         system = True
-    elif groups & {'wheel', 'sudo', 'admin'} and 0:
+    elif groups & {'wheel', 'sudo', 'admin'}:
         msg = (
             f'Recommendation: install {Fore.GREEN}globally{Fore.RESET} '
             f'(you most likely have {Fore.LIGHTRED}sudo access{Fore.RESET})'
