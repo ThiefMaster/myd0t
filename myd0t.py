@@ -344,6 +344,43 @@ def install_dconf(base_dir, user_install, user):
         print('non-zero exit code; loading terminal config likely failed')
 
 
+def do_update_shell(user):
+    rec = pwd.getpwnam(user)
+    if rec.pw_shell == '/bin/zsh':
+        return
+
+    usermod_args = ['usermod', '-s', '/bin/zsh', user]
+    usermod_cmd = ' '.join(map(shlex.quote, usermod_args))
+    if os.geteuid() == 0:
+        print(f'updating shell for {user}')
+        subprocess.run(usermod_args)
+        return
+
+    has_chsh = shutil.which('chsh') is not None
+    if has_chsh and user == pwd.getpwuid(os.geteuid()).pw_name:
+        print(
+            f'updating shell for {user} using chsh - you may need to enter your password'
+        )
+        try:
+            subprocess.run(['chsh', '-s', '/bin/zsh'], check=True)
+        except subprocess.CalledProcessError:
+            pass
+        else:
+            return
+
+    print(
+        f'could not update shell; run {Fore.LIGHTWHITE}{usermod_cmd}{Fore.RESET} as root'
+    )
+
+
+def update_shell(primary_user):
+    print(f'- default shell')
+    user = pwd.getpwuid(os.geteuid()).pw_name
+    do_update_shell(user)
+    if primary_user:
+        do_update_shell(primary_user)
+
+
 def get_install_mode():
     uid = os.geteuid()
     is_root = uid == 0
@@ -603,8 +640,7 @@ def main():
     install_editor(etc_path / 'vim', target_etc_path / 'vim', user_install, distro)
     if user_install or primary_user:
         install_dconf(base_dir / 'dconf', user_install, primary_user)
-
-    # TODO: offer to chsh
+    update_shell(primary_user)
     return 0
 
 
