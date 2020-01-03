@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
 
+import grp
 import os
+import pwd
 import re
 import shlex
 import shutil
 import subprocess
 import sys
+import textwrap
+from argparse import ArgumentParser, ArgumentTypeError
 from pathlib import Path
 
 from colorama_ansi import Fore, clear_line
 
+MYD0T = f'{Fore.LIGHTWHITE}myd0t{Fore.RESET}'
 DISTROS = {
     'gentoo': {
         'install': ['emerge', '-avn'],
@@ -316,8 +321,8 @@ def install_editor(base_dir, target_dir, user_install, distro):
                 vimrc_path.write_text(f'{old_vimrc}\n\n{loader}'.strip())
 
 
-def install_dconf(base_dir: Path):
-    print('- terminal config')
+def install_dconf(base_dir, user):
+    print('- gnome terminal')
     if not shutil.which('gnome-terminal'):
         print('gnome-terminal not installed; skipping terminal config')
         return
@@ -325,19 +330,238 @@ def install_dconf(base_dir: Path):
         print('dconf not installed; skipping terminal config')
         return
 
+    sudo = []
+    if user is not None:
+        sudo = ['sudo', '-E', '-u', user]
+
     terminal_conf = (base_dir / 'gnome-terminal.ini').read_bytes()
     try:
-        subprocess.run(['dconf', 'load', '/org/gnome/terminal/'], input=terminal_conf)
+        subprocess.run(
+            [*sudo, 'dconf', 'load', '/org/gnome/terminal/'], input=terminal_conf
+        )
     except subprocess.CalledProcessError:
         print('non-zero exit code; loading terminal config likely failed')
 
 
-def main():
-    args = sys.argv[1:]
-    user_install = '--user' in args
-    base_dir = Path(__file__).absolute().parent
-    distro = guess_distro()
+def get_install_mode():
+    uid = os.geteuid()
+    is_root = uid == 0
+    user = pwd.getpwuid(uid).pw_name
+    groups = {grp.getgrgid(g).gr_name for g in os.getgroups()}
+    msg = f'''
+        Welcome, {Fore.CYAN}{user}{Fore.RESET}!
 
+        If this is {Fore.GREEN}your system{Fore.RESET}, it is recommended to install {MYD0T} globally.
+        This allows you to have the same nice environment when switching to
+        a root shell or other users.
+
+        If this is a {Fore.YELLOW}shared system{Fore.RESET} where you might not even have root access,
+        you need to install {MYD0T} locally, just for your own user.
+    '''
+    print(textwrap.dedent(msg).strip())
+    print()
+    if is_root:
+        msg = (
+            f'Recommendation: install {Fore.GREEN}globally{Fore.RESET} '
+            f'(you are {Fore.LIGHTRED}root{Fore.RESET})'
+        )
+        system = True
+    elif groups & {'wheel', 'sudo', 'admin'} and 0:
+        msg = (
+            f'Recommendation: install {Fore.GREEN}globally{Fore.RESET} '
+            f'(you most likely have {Fore.LIGHTRED}sudo access{Fore.RESET})'
+        )
+        system = True
+    else:
+        msg = (
+            f'Recommendation: install {Fore.YELLOW}locally{Fore.RESET} '
+            '(unless you have sudo access)'
+        )
+        system = False
+    print(msg)
+    print()
+    if system:
+        if not confirm(
+            f'Continue with {Fore.GREEN}global{Fore.RESET} install?', default=True
+        ):
+            if confirm(
+                f'Install {Fore.YELLOW}locally{Fore.RESET} instead?', default=True
+            ):
+                system = False
+            else:
+                sys.exit(1)
+    else:
+        if not confirm(
+            f'Continue with {Fore.YELLOW}local{Fore.RESET} install?', default=True
+        ):
+            if confirm(
+                f'Install {Fore.GREEN}globally{Fore.RESET} instead?', default=True
+            ):
+                system = True
+            else:
+                sys.exit(1)
+
+    if not system:
+        return True, None, False
+    elif not is_root:
+        # need to re-run with sudo
+        return False, user, True
+    else:
+        msg = f'Please provide the name of your regular (non-root) user'
+        user = prompt(msg, default=get_primary_user(), check_user=True)
+        return False, user, False
+    return None, None, None
+
+
+def get_primary_user():
+    try:
+        return os.environ['SUDO_USER']
+    except KeyError:
+        pass
+    # see if we can find a single user with a home directory
+    uids = {x.stat().st_uid for x in Path('/home').iterdir() if x.is_dir()}
+    users = []
+    for uid in uids:
+        try:
+            users.append(pwd.getpwuid(uid).pw_name)
+        except KeyError:
+            # no user for the given uid
+            pass
+    if len(users) == 1:
+        return users[0]
+    return None
+
+
+def confirm(msg, default=None):
+    yes = 'y'
+    no = 'n'
+    if default is not None:
+        if default:
+            yes = 'Y'
+        else:
+            no = 'N'
+    prompt = (
+        f'{msg} [{Fore.LIGHTGREEN}{yes}{Fore.RESET}/{Fore.LIGHTRED}{no}{Fore.RESET}]: '
+    )
+    while True:
+        print(prompt, end='')
+        try:
+            value = input('').lower().strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            sys.exit(1)
+        if value in ('y', 'yes'):
+            return True
+        elif value in ('n', 'no'):
+            return False
+        elif value == '' and default is not None:
+            return default
+        else:
+            print('invalid input')
+
+
+def prompt(msg, default=None, check_user=False):
+    prompt = msg
+    if default is not None:
+        prompt = f'{msg} [{Fore.LIGHTWHITE}{default}{Fore.RESET}]: '
+    while True:
+        print(prompt, end='')
+        try:
+            value = input('').strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            sys.exit(1)
+        if value:
+            rv = value
+        elif default is not None:
+            rv = default
+        else:
+            print('input required')
+            continue
+        if check_user:
+            try:
+                user_arg_type(rv)
+            except ArgumentTypeError as exc:
+                print(exc)
+                continue
+        break
+    return rv
+
+
+def user_arg_type(value):
+    try:
+        rec = pwd.getpwnam(value)
+    except KeyError:
+        raise ArgumentTypeError('invalid user')
+    if rec.pw_uid == 0:
+        raise ArgumentTypeError('this user is root')
+    elif rec.pw_shell == '/bin/false':
+        raise ArgumentTypeError('this user has no shell')
+    return value
+
+
+def parse_args():
+    parser = ArgumentParser(prog=sys.argv[0])
+    parser.add_argument(
+        '--user',
+        type=user_arg_type,
+        help='Primary user of the system (only used for global install)',
+    )
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        '--local',
+        dest='user_install',
+        action='store_true',
+        default=None,
+        help='Install locally',
+    )
+    group.add_argument(
+        '--global',
+        dest='user_install',
+        action='store_false',
+        default=None,
+        help='Install globally',
+    )
+    args = parser.parse_args()
+    if args.user is not None and args.user_install in (None, True):
+        print('error: cannot specify --user unless --global is used')
+        return None
+    elif args.user is None and args.user_install is False:
+        print('error: --user is required when --global is used')
+        return None
+    if args.user_install is False and os.geteuid() != 0:
+        print('error: global install requires root')
+        return None
+    return args
+
+
+def main():
+    distro = guess_distro()
+    if distro not in DISTROS:
+        print(
+            f'{Fore.LIGHTRED}Unknown distro {Fore.RED}{distro}{Fore.LIGHTRED};'
+            f'some automatisms may not work!{Fore.RESET}'
+        )
+
+    args = parse_args()
+    if args is None:
+        return 1
+
+    if args.user_install is None:
+        user_install, primary_user, sudo = get_install_mode()
+        print()
+        if sudo:
+            cmd_args = [sys.argv[0], '--global', '--user', primary_user]
+            cmd = ' '.join(map(shlex.quote, cmd_args))
+            print(
+                f'Using sudo to become root. If this fails, you can run '
+                f'{Fore.LIGHTWHITE}{cmd}{Fore.RESET} as root manually'
+            )
+            os.execlp('sudo', 'sudo', '-E', *cmd_args)
+    else:
+        user_install, primary_user = args.user_install, args.user
+
+    base_dir = Path(__file__).absolute().parent
     print('running some checks...')
     if not check_root(user_install):
         return 1
@@ -373,8 +597,7 @@ def main():
         etc_path / 'git', target_etc_path / 'git', target_bin_path, user_install
     )
     install_editor(etc_path / 'vim', target_etc_path / 'vim', user_install, distro)
-    if user_install:
-        install_dconf(base_dir / 'dconf')
+    install_dconf(base_dir / 'dconf', primary_user)
 
     # TODO: offer to chsh
     return 0
