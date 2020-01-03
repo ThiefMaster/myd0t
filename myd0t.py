@@ -321,7 +321,7 @@ def install_editor(base_dir, target_dir, user_install, distro):
                 vimrc_path.write_text(f'{old_vimrc}\n\n{loader}'.strip())
 
 
-def install_dconf(base_dir, user):
+def install_dconf(base_dir, user_install, user):
     print('- gnome terminal')
     if not shutil.which('gnome-terminal'):
         print('gnome-terminal not installed; skipping terminal config')
@@ -331,7 +331,8 @@ def install_dconf(base_dir, user):
         return
 
     sudo = []
-    if user is not None:
+    if not user_install:
+        # during a global install we're root so we need to switch to the user
         sudo = ['sudo', '-E', '-u', user]
 
     terminal_conf = (base_dir / 'gnome-terminal.ini').read_bytes()
@@ -408,7 +409,7 @@ def get_install_mode():
         return False, user, True
     else:
         msg = f'Please provide the name of your regular (non-root) user'
-        user = prompt(msg, default=get_primary_user(), check_user=True)
+        user = prompt(msg, default=(get_primary_user() or ''), check_user=True)
         return False, user, False
     return None, None, None
 
@@ -463,9 +464,9 @@ def confirm(msg, default=None):
 def prompt(msg, default=None, check_user=False):
     prompt = msg
     if default is not None:
-        prompt = f'{msg} [{Fore.LIGHTWHITE}{default}{Fore.RESET}]: '
+        prompt = f'{msg} [{Fore.LIGHTWHITE}{default}{Fore.RESET}]'
     while True:
-        print(prompt, end='')
+        print(prompt, end=': ')
         try:
             value = input('').strip()
         except (EOFError, KeyboardInterrupt):
@@ -478,7 +479,7 @@ def prompt(msg, default=None, check_user=False):
         else:
             print('input required')
             continue
-        if check_user:
+        if check_user and rv:
             try:
                 user_arg_type(rv)
             except ArgumentTypeError as exc:
@@ -526,9 +527,6 @@ def parse_args():
     if args.user is not None and args.user_install in (None, True):
         print('error: cannot specify --user unless --global is used')
         return None
-    elif args.user is None and args.user_install is False:
-        print('error: --user is required when --global is used')
-        return None
     if args.user_install is False and os.geteuid() != 0:
         print('error: global install requires root')
         return None
@@ -551,7 +549,9 @@ def main():
         user_install, primary_user, sudo = get_install_mode()
         print()
         if sudo:
-            cmd_args = [sys.argv[0], '--global', '--user', primary_user]
+            cmd_args = [sys.argv[0], '--global']
+            if primary_user:
+                cmd_args += ['--user', primary_user]
             cmd = ' '.join(map(shlex.quote, cmd_args))
             print(
                 f'Using sudo to become root. If this fails, you can run '
@@ -597,7 +597,8 @@ def main():
         etc_path / 'git', target_etc_path / 'git', target_bin_path, user_install
     )
     install_editor(etc_path / 'vim', target_etc_path / 'vim', user_install, distro)
-    install_dconf(base_dir / 'dconf', primary_user)
+    if user_install or primary_user:
+        install_dconf(base_dir / 'dconf', user_install, primary_user)
 
     # TODO: offer to chsh
     return 0
