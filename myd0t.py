@@ -168,7 +168,9 @@ def install_tmux(base_dir, target_dir, target_bin_path, user_install):
         custom_config_path.touch()
     smartsplit_path = target_bin_path / 'tmux-smartsplit'
     replace_placeholders(
-        target_path, custom_config_path=custom_config_path, smartsplit=smartsplit_path,
+        target_path,
+        custom_config_path=relative_to_home(custom_config_path),
+        smartsplit=relative_to_home(smartsplit_path),
     )
 
 
@@ -229,16 +231,16 @@ def install_zsh(base_dir, target_dir, user_install):
     replace_placeholders(
         target_dir / 'zshrc',
         base_dir / 'zshrc',
-        zshrc=tm_config_path / '.zshrc',
-        editor_env=target_dir.parent / 'vim' / 'editor-env.sh',
-        custom_zshrc=custom_zshrc_path,
+        zshrc=relative_to_home(tm_config_path / '.zshrc'),
+        editor_env=relative_to_home(target_dir.parent / 'vim' / 'editor-env.sh'),
+        custom_zshrc=relative_to_home(custom_zshrc_path),
     )
     if zshenv_path:
         replace_placeholders(
             target_dir / 'zshenv',
             base_dir / 'zshenv',
-            zshenv=tm_config_path / '.zshenv',
-            custom_zshenv=custom_zshenv_path,
+            zshenv=relative_to_home(tm_config_path / '.zshenv'),
+            custom_zshenv=relative_to_home(custom_zshenv_path),
         )
 
 
@@ -249,8 +251,11 @@ def install_git(base_dir, target_dir, target_bin_path, user_install):
     git_config_arg = '--global' if user_install else '--system'
     smartless_path = target_bin_path / 'smartless'
     replace_placeholders(
-        target_file_path, base_dir / 'gitconfig', smartless=smartless_path
+        target_file_path,
+        base_dir / 'gitconfig',
+        smartless=relative_to_home(smartless_path),
     )
+    rel_target_file_path_str = str(relative_to_home(target_file_path))
     subprocess.run(
         [
             'git',
@@ -258,8 +263,8 @@ def install_git(base_dir, target_dir, target_bin_path, user_install):
             git_config_arg,
             '--replace-all',
             'include.path',
-            str(target_file_path),
-            f'^{re.escape(str(target_file_path))}$',
+            rel_target_file_path_str,
+            f'^{re.escape(rel_target_file_path_str)}$',
         ],
         check=True,
     )
@@ -321,7 +326,10 @@ def install_editor(base_dir, target_dir, user_install, distro):
     shutil.copy(base_dir / 'darcula_myd0t.vim', colors_path / 'darcula_myd0t.vim')
 
     if vimrc_path is not None:
-        loader = replace_placeholders(None, base_dir / 'loader', vimrc=target_file_path)
+        rel_target_file_path = relative_to_home(target_file_path)
+        loader = replace_placeholders(
+            None, base_dir / 'loader', vimrc=rel_target_file_path
+        )
         if not vimrc_path.exists() or not vimrc_path.read_text().strip():
             # vimrc doesn't exist or is empty - just use ours
             vimrc_path.write_text(loader)
@@ -330,7 +338,7 @@ def install_editor(base_dir, target_dir, user_install, distro):
             old_vimrc = vimrc_path.read_text().rstrip()
             if loader.strip() in old_vimrc:
                 pass
-            elif str(target_file_path) in old_vimrc:
+            elif str(rel_target_file_path) in old_vimrc:
                 print(f'  {vimrc_path.name} has already been patched (but modified)')
             else:
                 vimrc_path.write_text(f'{old_vimrc}\n\n{loader}'.strip())
