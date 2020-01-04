@@ -124,20 +124,6 @@ def install_packages(distro, packages):
             print('non-zero exit code; installation likely failed')
 
 
-def check_root(user_install):
-    print('root? ', end='')
-    if user_install:
-        print(f'{Fore.YELLOW}not needed{Fore.RESET}')
-        return True
-    if os.geteuid() != 0:
-        print(f'{Fore.LIGHTRED}FAILED{Fore.RESET}')
-        print('re-run with `sudo` or use `--user` to install everything locally')
-        print('if this is your machine use `sudo`; otherwise use `--user`')
-        return False
-    print(f'{Fore.LIGHTGREEN}OK{Fore.RESET}')
-    return True
-
-
 def is_tmux_2():
     try:
         output = subprocess.check_output(['tmux', '-V']).decode().strip()
@@ -640,8 +626,6 @@ def main():
 
     base_dir = Path(__file__).absolute().parent
     print('running some checks...')
-    if not check_root(user_install):
-        return 1
     if not check_programs(distro, ['git', 'zsh', 'tmux', 'vim']):
         return 1
 
