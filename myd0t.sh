@@ -1,5 +1,9 @@
 #!/bin/sh
 
+if type shopt > /dev/null 2>&1; then
+	shopt -s xpg_echo
+fi
+
 red="\033[1;31m"
 green="\033[1;32m"
 yellow="\033[1;33m"
@@ -19,7 +23,7 @@ install_python3() {
 		echo 'Using pacman (arch)'
 		pacman -Sy python3
 	else
-		echo -e "${red}No known package manager found :(${reset}"
+		echo "${red}No known package manager found :(${reset}"
 		echo 'aborting'
 	fi
 	# XXX: no need to handle gentoo here; it always has python installed
@@ -27,13 +31,13 @@ install_python3() {
 
 if ! type python3 > /dev/null 2>&1; then
 	echo
-	echo -e "${yellow}This installer requires python3, which is not installed.${reset}"
+	echo "${yellow}This installer requires python3, which is not installed.${reset}"
 	if [ "$(id -u)" != "0" ]; then
 		echo 'Please install it and then re-run this installer.'
 		exit 1
 	fi
 	choices="${green}Y${reset}/${red}n${reset}"
-	echo -e "Install it automatically using your distribution's package manager? [$choices] "
+	echo "Install it automatically using your distribution's package manager? [$choices] "
 	read choice
 	case "$choice" in
 		y|Y|yes|'')
