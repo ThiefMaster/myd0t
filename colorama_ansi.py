@@ -13,10 +13,6 @@ def code_to_chars(code):
     return CSI + str(code) + 'm'
 
 
-def clear_line(mode=2):
-    return CSI + str(mode) + 'K'
-
-
 class AnsiCodes(object):
     def __init__(self):
         # the subclasses declare class attributes which are numbers.

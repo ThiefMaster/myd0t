@@ -12,7 +12,7 @@ import textwrap
 from argparse import ArgumentParser, ArgumentTypeError
 from pathlib import Path
 
-from colorama_ansi import Fore, clear_line
+from colorama_ansi import Fore
 
 MYD0T = f'{Fore.LIGHTWHITE}myd0t{Fore.RESET}'
 DISTROS = {
@@ -78,18 +78,34 @@ def guess_distro():
         return 'arch'
 
 
+def check_distro(distro):
+    if distro in DISTROS:
+        return True
+    print(
+        f'{Fore.LIGHTRED}Unknown distro {Fore.RED}{distro}{Fore.LIGHTRED}; '
+        f'some automatisms may not work!{Fore.RESET}'
+    )
+    print(
+        f'If you want it to be supported, please open an issue on\n'
+        f'{Fore.LIGHTWHITE}https://github.com/ThiefMaster/myd0t/issues{Fore.RESET}'
+    )
+    rv = confirm('Continue anyway?', default=False)
+    if rv:
+        print()
+    return rv
+
+
 def check_programs(distro, programs):
     missing = {p for p in programs if not shutil.which(p)}
     colors = {p: Fore.LIGHTRED if p in missing else Fore.LIGHTGREEN for p in programs}
     result = {f'{colors[p]}{p}{Fore.RESET}' for p in programs}
-    print(f'required packages: {", ".join(sorted(result))}')
+    print(f'Required packages: {", ".join(sorted(result))}')
     if not missing:
         return True
     try:
         install_packages(distro, missing)
     except KeyboardInterrupt:
-        clear_line()
-        print(f'\r{Fore.LIGHTRED}package installation aborted{Fore.RESET}')
+        print(f'{Fore.LIGHTRED}package installation aborted{Fore.RESET}')
         return False
     else:
         return check_programs(distro, programs)
@@ -99,25 +115,25 @@ def install_packages(distro, packages):
     try:
         distro_data = DISTROS[distro]
     except KeyError:
-        print('please install the following packages:\n')
+        print('Please install the following packages:\n')
         for p in packages:
-            print(f' - {p}')
+            print(f' - {Fore.LIGHTWHITE}{p}{Fore.RESET}')
         print()
-        wait_for_user()
+        wait_for_user('once you installed them')
         return
     distro_packages = [distro_data['packages'][x] for x in packages]
     args = [*distro_data['install'], *distro_packages]
     cmdline = ' '.join(map(shlex.quote, args))
     if os.geteuid() != 0:
-        print('run the following command as root to install missing packages:\n')
+        print('Run the following command as root to install missing packages:\n')
         print(f'    {Fore.LIGHTWHITE}{cmdline}{Fore.RESET}')
         print()
-        wait_for_user()
+        wait_for_user('once you installed them')
     else:
-        print(
-            f'i will run {Fore.LIGHTWHITE}{cmdline}{Fore.RESET} to install missing packages'
-        )
-        wait_for_user()
+        print(f'The following command will be used to install the missing packages:\n')
+        print(f'    {Fore.LIGHTWHITE}{cmdline}{Fore.RESET}')
+        print()
+        wait_for_user('to start the installation')
         try:
             subprocess.run(args, check=True)
         except subprocess.CalledProcessError:
@@ -127,14 +143,18 @@ def install_packages(distro, packages):
 def is_tmux_2():
     try:
         output = subprocess.check_output(['tmux', '-V']).decode().strip()
-    except (OSError, subprocess.CalledProcessError):
-        print('FAILED')
+    except (OSError, subprocess.CalledProcessError) as exc:
+        print(f'{Fore.LIGHTRED}Checking tmux version failed:{Fore.RESET} {exc}')
         return None
     return re.match(r'tmux (\d+)', output).group(1) == '2'
 
 
+def print_step(name):
+    print(f'*** Configuring {Fore.LIGHTWHITE}{name}{Fore.RESET} ***')
+
+
 def install_tmux(base_dir, target_dir, target_bin_path, user_install):
-    print('- tmux')
+    print_step('tmux')
     target_dir.mkdir(exist_ok=True)
     source_file = 'tmux.conf' if not is_tmux_2() else 'tmux-legacy.conf'
     target_path = target_dir / 'tmux.conf'
@@ -161,7 +181,7 @@ def install_tmux(base_dir, target_dir, target_bin_path, user_install):
 
 
 def install_zsh(base_dir, target_dir, user_install):
-    print('- zsh')
+    print_step('zsh')
     target_dir.mkdir(exist_ok=True)
     tm_config_path = target_dir / 'config-tm'
     custom_zshrc_path = target_dir / 'zshrc.user'
@@ -176,8 +196,7 @@ def install_zsh(base_dir, target_dir, user_install):
                 or old_zshrc_data != zshrc_skel.read_text().strip()
             ):
                 msg = (
-                    f'{Fore.LIGHTWHITE}~/.zshrc{Fore.RESET} already exists. '
-                    f'Do you want to move it to '
+                    f'{Fore.LIGHTWHITE}~/.zshrc{Fore.RESET} already exists. Move it to '
                     f'{Fore.LIGHTWHITE}{relative_to_home(custom_zshrc_path)}{Fore.RESET}?'
                 )
                 if confirm(msg, default=True):
@@ -231,7 +250,7 @@ def install_zsh(base_dir, target_dir, user_install):
 
 
 def install_git(base_dir, target_dir, target_bin_path, user_install):
-    print('- git')
+    print_step('git')
     target_dir.mkdir(exist_ok=True)
     target_file_path = target_dir / 'gitconfig'
     git_config_arg = '--global' if user_install else '--system'
@@ -266,7 +285,7 @@ def replace_placeholders(file: Path, infile: Path = None, **placeholders):
 
 
 def install_editor(base_dir, target_dir, user_install, distro):
-    print('- editor [vim, what else]')
+    print_step('vim')
     target_dir.mkdir(exist_ok=True)
     target_file_path = target_dir / 'vimrc'
 
@@ -279,10 +298,9 @@ def install_editor(base_dir, target_dir, user_install, distro):
         distro_data = None
         vimrc_msg = ''
         if not user_install:
-            vimrc_msg = ' and load {target_file_path}'
+            vimrc_msg = f' and load {target_file_path}'
         print(
-            f'{Fore.YELLOW}unknown distro; you need to set the default '
-            'editor{vimrcmsg} manually{Fore.RESET}'
+            f'{Fore.YELLOW}You need to set the default editor{vimrc_msg} manually{Fore.RESET}'
         )
     else:
         # set default editor in environment
@@ -331,14 +349,14 @@ def install_editor(base_dir, target_dir, user_install, distro):
 
 
 def install_dconf(base_dir, user_install, user):
-    print('- gnome terminal')
-    if not shutil.which('gnome-terminal'):
-        print('gnome-terminal not installed; skipping terminal config')
-        return
     if not shutil.which('dconf'):
-        print('dconf not installed; skipping terminal config')
+        # probably not a GUI system
+        return
+    if not shutil.which('gnome-terminal'):
+        # no GUI system or no gnome terminal
         return
 
+    print_step('gnome-terminal')
     sudo = []
     if not user_install:
         # during a global install we're root so we need to switch to the user
@@ -352,7 +370,7 @@ def install_dconf(base_dir, user_install, user):
             check=True,
         )
     except subprocess.CalledProcessError:
-        print('non-zero exit code; loading terminal config likely failed')
+        print(f'{Fore.LIGHTRED}Loading terminal config likely failed{Fore.RESET}')
 
 
 def do_update_shell(user):
@@ -363,15 +381,14 @@ def do_update_shell(user):
     usermod_args = ['usermod', '-s', '/bin/zsh', user]
     usermod_cmd = ' '.join(map(shlex.quote, usermod_args))
     if os.geteuid() == 0:
-        print(f'updating shell for {user}')
+        print(f'Updating shell to zsh for {Fore.LIGHTWHITE}{user}{Fore.RESET}')
         subprocess.run(usermod_args)
         return
 
     has_chsh = shutil.which('chsh') is not None
     if has_chsh and user == pwd.getpwuid(os.geteuid()).pw_name:
-        print(
-            f'updating shell for {user} using chsh - you may need to enter your password'
-        )
+        print(f'Updating shell to zsh for {user} using chsh')
+        print('You may need to enter your password')
         try:
             subprocess.run(['chsh', '-s', '/bin/zsh'], check=True)
         except subprocess.CalledProcessError:
@@ -379,13 +396,14 @@ def do_update_shell(user):
         else:
             return
 
+    print(f'{Fore.LIGHTRED}Could not update shell{Fore.RESET}')
     print(
-        f'could not update shell; run {Fore.LIGHTWHITE}{usermod_cmd}{Fore.RESET} as root'
+        f'Run {Fore.LIGHTWHITE}{usermod_cmd}{Fore.RESET} as root to change it manually'
     )
 
 
 def update_shell(primary_user):
-    print(f'- default shell')
+    print_step('default shell')
     user = pwd.getpwuid(os.geteuid()).pw_name
     do_update_shell(user)
     if primary_user:
@@ -481,13 +499,12 @@ def get_primary_user():
     return None
 
 
-def wait_for_user():
-    print('Press ENTER to continue')
+def wait_for_user(action='to continue'):
+    print(f'Press ENTER {action}', end='')
     try:
         input('')
     except (EOFError, KeyboardInterrupt):
-        print('\r', end='')
-        clear_line()
+        print()
         print('aborting')
         sys.exit(1)
 
@@ -593,12 +610,13 @@ def parse_args():
 
 
 def main():
+    print(
+        f'This is {MYD0T}, a lightweight set of dotfiles by {Fore.GREEN}@{Fore.LIGHTGREEN}ThiefMaster{Fore.RESET}\n'
+    )
+
     distro = guess_distro()
-    if distro not in DISTROS:
-        print(
-            f'{Fore.LIGHTRED}Unknown distro {Fore.RED}{distro}{Fore.LIGHTRED};'
-            f'some automatisms may not work!{Fore.RESET}'
-        )
+    if not check_distro(distro):
+        return 1
 
     args = parse_args()
     if args is None:
@@ -611,11 +629,7 @@ def main():
             cmd_args = [sys.argv[0], '--global']
             if primary_user:
                 cmd_args += ['--user', primary_user]
-            cmd = ' '.join(map(shlex.quote, cmd_args))
-            print(
-                f'Using sudo to become root. If this fails, you can run '
-                f'{Fore.LIGHTWHITE}{cmd}{Fore.RESET} as root manually'
-            )
+            print('Using sudo to become root...\n\n')
             try:
                 os.execlp('sudo', 'sudo', '-E', *cmd_args)
             except FileNotFoundError as exc:
@@ -624,19 +638,22 @@ def main():
     else:
         user_install, primary_user = args.user_install, args.user
 
-    base_dir = Path(__file__).absolute().parent
-    print('running some checks...')
     if not check_programs(distro, ['git', 'zsh', 'tmux', 'vim']):
         return 1
-
     print()
+
+    base_dir = Path(__file__).absolute().parent
+
     if user_install:
         target_dir = Path('~/.config/myd0t').expanduser()
     else:
         # make sure files we create/copy are world-readable
         os.umask(0o022)
         target_dir = Path('/opt/myd0t')
-    print(f'installing to {Fore.LIGHTWHITE}{target_dir}{Fore.RESET}')
+
+    print(
+        f'Install path: {Fore.LIGHTWHITE}{relative_to_home(target_dir)}{Fore.RESET}\n'
+    )
     target_dir.mkdir(parents=True, exist_ok=True)
 
     # bin is not tied to any specific application (even though it could be),
@@ -646,7 +663,7 @@ def main():
         shutil.rmtree(target_bin_path)
     shutil.copytree(base_dir / 'bin', target_bin_path)
 
-    print('installing configs...')
+    # install the various configs
     etc_path = base_dir / 'etc'
     target_etc_path = target_dir / 'etc'
     target_etc_path.mkdir(exist_ok=True)
@@ -661,6 +678,12 @@ def main():
     if user_install or primary_user:
         install_dconf(base_dir / 'dconf', user_install, primary_user)
     update_shell(primary_user)
+
+    print()
+    print(f'{Fore.LIGHTGREEN}All done!{Fore.RESET}')
+    print(
+        f'{Fore.LIGHTYELLOW}You most likely need to login again for some of the changes to work.{Fore.RESET}'
+    )
     return 0
 
 
