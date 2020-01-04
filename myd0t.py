@@ -60,6 +60,14 @@ DISTROS = {
 }
 
 
+def relative_to_home(path: Path):
+    try:
+        return '~' / path.relative_to(Path.home())
+    except ValueError:
+        # not inside the home dir, keep absolute
+        return path
+
+
 def guess_distro():
     if os.path.exists('/etc/os-release'):
         return subprocess.check_output(
@@ -168,17 +176,24 @@ def install_zsh(base_dir, target_dir, user_install):
     print('- zsh')
     target_dir.mkdir(exist_ok=True)
     tm_config_path = target_dir / 'config-tm'
+    custom_zshrc_path = target_dir / 'zshrc.user'
     if user_install:
         zshrc_path = Path('~/.zshrc').expanduser()
         zshenv_path = None
-        try:
-            if zshrc_path.exists() and not zshrc_path.is_symlink():
-                input(
-                    '~/.zshrc will be overwritten. Press ENTER to confirm, CTRL+C to abort\n'
+        if zshrc_path.exists() and not zshrc_path.is_symlink():
+            old_zshrc_data = zshrc_path.read_text().strip()
+            zshrc_skel = Path('/etc/skel/.zshrc')
+            if old_zshrc_data and (
+                not zshrc_skel.exists()
+                or old_zshrc_data != zshrc_skel.read_text().strip()
+            ):
+                msg = (
+                    f'{Fore.LIGHTWHITE}~/.zshrc{Fore.RESET} already exists. '
+                    f'Do you want to move it to '
+                    f'{Fore.LIGHTWHITE}{relative_to_home(custom_zshrc_path)}{Fore.RESET}?'
                 )
-        except KeyboardInterrupt:
-            print('\rzsh setup aborted')
-            return
+                if confirm(msg, default=True):
+                    shutil.copy(zshrc_path, custom_zshrc_path)
     elif Path('/etc/zsh').exists():
         zshrc_path = Path('/etc/zsh/zshrc')
         zshenv_path = Path('/etc/zsh/zshenv')
@@ -204,7 +219,6 @@ def install_zsh(base_dir, target_dir, user_install):
     if zshenv_path:
         zshenv_path.symlink_to(target_dir / 'zshenv')
     # create override files in case the user wants to add more stuff
-    custom_zshrc_path = target_dir / 'zshrc.user'
     if not custom_zshrc_path.exists():
         custom_zshrc_path.touch()
     if zshenv_path:
