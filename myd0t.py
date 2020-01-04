@@ -111,7 +111,7 @@ def install_packages(distro, packages):
         )
         input('press ENTER to continue\n')
         try:
-            subprocess.check_call(args)
+            subprocess.run(args, check=True)
         except subprocess.CalledProcessError:
             print('non-zero exit code; installation likely failed')
 
@@ -237,7 +237,7 @@ def install_git(base_dir, target_dir, target_bin_path, user_install):
     replace_placeholders(
         target_file_path, base_dir / 'gitconfig', smartless=smartless_path
     )
-    subprocess.check_call(
+    subprocess.run(
         [
             'git',
             'config',
@@ -246,7 +246,8 @@ def install_git(base_dir, target_dir, target_bin_path, user_install):
             'include.path',
             str(target_file_path),
             f'^{re.escape(str(target_file_path))}$',
-        ]
+        ],
+        check=True,
     )
 
 
@@ -291,7 +292,7 @@ def install_editor(base_dir, target_dir, user_install, distro):
             # run custom command to set the editor
             set_editor = distro_data['set_editor']
             if set_editor:
-                subprocess.check_call(set_editor, stdout=subprocess.DEVNULL)
+                subprocess.run(set_editor, stdout=subprocess.DEVNULL)
 
     vimrc_path = None
     if user_install:
@@ -338,7 +339,9 @@ def install_dconf(base_dir, user_install, user):
     terminal_conf = (base_dir / 'gnome-terminal.ini').read_bytes()
     try:
         subprocess.run(
-            [*sudo, 'dconf', 'load', '/org/gnome/terminal/'], input=terminal_conf
+            [*sudo, 'dconf', 'load', '/org/gnome/terminal/'],
+            input=terminal_conf,
+            check=True,
         )
     except subprocess.CalledProcessError:
         print('non-zero exit code; loading terminal config likely failed')
