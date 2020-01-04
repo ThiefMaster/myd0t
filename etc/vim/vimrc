@@ -1,6 +1,6 @@
 " when there's ~/.vimrc, defaults usually aren't loaded...
 source $VIMRUNTIME/defaults.vim
 
-set nowrap modeline t_Co=256 bg=dark
+set nowrap modeline t_Co=256 bg=dark ttymouse=
 colorscheme darcula_myd0t
 autocmd BufReadPost COMMIT_EDITMSG exe "normal! gg"
