@@ -95,7 +95,7 @@ def install_packages(distro, packages):
         for p in packages:
             print(f' - {p}')
         print()
-        input('press ENTER once you are done\n')
+        wait_for_user()
         return
     distro_packages = [distro_data['packages'][x] for x in packages]
     args = [*distro_data['install'], *distro_packages]
@@ -104,12 +104,12 @@ def install_packages(distro, packages):
         print('run the following command as root to install missing packages:\n')
         print(f'    {Fore.LIGHTWHITE}{cmdline}{Fore.RESET}')
         print()
-        input('press ENTER once you are done\n')
+        wait_for_user()
     else:
         print(
             f'i will run {Fore.LIGHTWHITE}{cmdline}{Fore.RESET} to install missing packages'
         )
-        input('press ENTER to continue\n')
+        wait_for_user()
         try:
             subprocess.run(args, check=True)
         except subprocess.CalledProcessError:
@@ -471,6 +471,17 @@ def get_primary_user():
     if len(users) == 1:
         return users[0]
     return None
+
+
+def wait_for_user():
+    print('Press ENTER to continue')
+    try:
+        input('')
+    except (EOFError, KeyboardInterrupt):
+        print('\r', end='')
+        clear_line()
+        print('aborting')
+        sys.exit(1)
 
 
 def confirm(msg, default=None):
