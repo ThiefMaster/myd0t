@@ -20,7 +20,9 @@ submodules) and run `myd0t.py` yourself.
 - Fedora
 - Arch Linux
 
-Other distributions should work fine, but some automatisms will not work:
+Use the latest (stable) version, I do not care about ancient systems.
+
+Other distributions should work fine, but some automatisms won't:
 
 - missing packages need to be installed manually
 - the global default editor cannot be set automatically
@@ -46,10 +48,13 @@ don't already have your own fancy configs!
 
 ## Customization
 
-Of course you can always fork this, but if you just want to add some extra
-configuration on a single machine, just use the user config files which are
-provided for tmux and zsh; those are not overwritten when re-running the
-myd0t installer so they are a good place to put custom configs .
+Of course you can always fork this repo - that lets you track your
+customizations in Git and easily share them between machines.
+
+But if you just want to add some extra configuration on a single machine,
+simply use the user config files which are provided for tmux and zsh. The
+paths are displayed during installation, and these files are preserved even
+when re-running the myd0t installer.
 
 
 [releases]: https://github.com/ThiefMaster/myd0t/releases
