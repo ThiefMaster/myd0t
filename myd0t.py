@@ -173,10 +173,15 @@ def install_tmux(base_dir, target_dir, target_bin_path, user_install):
     if not custom_config_path.exists():
         custom_config_path.touch()
     smartsplit_path = target_bin_path / 'tmux-smartsplit'
+    rel_custom_config_path = relative_to_home(custom_config_path)
     replace_placeholders(
         target_path,
-        custom_config_path=relative_to_home(custom_config_path),
+        custom_config_path=rel_custom_config_path,
         smartsplit=relative_to_home(smartsplit_path),
+    )
+    print(
+        f'{Fore.CYAN}You can add custom settings to{Fore.RESET} '
+        f'{Fore.LIGHTCYAN}{rel_custom_config_path}{Fore.RESET}'
     )
 
 
@@ -233,20 +238,29 @@ def install_zsh(base_dir, target_dir, user_install):
         if not custom_zshenv_path.exists():
             custom_zshenv_path.touch()
     # copy the configs our symlinks point to
+    rel_custom_zshrc_path = relative_to_home(custom_zshrc_path)
     replace_placeholders(
         target_dir / 'zshrc',
         base_dir / 'zshrc',
         zshrc=relative_to_home(tm_config_path / '.zshrc'),
         editor_env=relative_to_home(target_dir.parent / 'vim' / 'editor-env.sh'),
-        custom_zshrc=relative_to_home(custom_zshrc_path),
+        custom_zshrc=rel_custom_zshrc_path,
     )
+    rel_custom_zshenv_path = None
+    custom_zshenv_msg = ''
     if zshenv_path:
+        rel_custom_zshenv_path = relative_to_home(custom_zshenv_path)
         replace_placeholders(
             target_dir / 'zshenv',
             base_dir / 'zshenv',
             zshenv=relative_to_home(tm_config_path / '.zshenv'),
-            custom_zshenv=relative_to_home(custom_zshenv_path),
+            custom_zshenv=rel_custom_zshenv_path,
         )
+        custom_zshenv_msg = f' {Fore.CYAN}and{Fore.RESET} {Fore.LIGHTCYAN}{rel_custom_zshenv_path}{Fore.RESET}'
+    print(
+        f'{Fore.CYAN}You can add custom settings to{Fore.RESET} '
+        f'{Fore.LIGHTCYAN}{rel_custom_zshrc_path}{Fore.RESET}{custom_zshenv_msg}'
+    )
 
 
 def install_git(base_dir, target_dir, target_bin_path, user_install):
