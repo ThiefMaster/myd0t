@@ -424,11 +424,21 @@ def update_shell(primary_user):
         do_update_shell(primary_user)
 
 
+def get_group_names():
+    groups = set()
+    for g in os.getgroups():
+        try:
+            groups.add(grp.getgrgid(g).gr_name)
+        except KeyError:
+            continue
+    return groups
+
+
 def get_install_mode():
     uid = os.geteuid()
     is_root = uid == 0
     user = pwd.getpwuid(uid).pw_name
-    groups = {grp.getgrgid(g).gr_name for g in os.getgroups()}
+    groups = get_group_names()
     msg = f'''
         Welcome, {Fore.CYAN}{user}{Fore.RESET}!
 
