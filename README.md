@@ -83,6 +83,7 @@ The most important tmux key bindings are:
 - `%` - split the current window/pane horizontally
 - `q` - show the pane indexes; you have 1 second to press the corresponding number
   if you want to switch to it
+- `z` - zoom in the current pane; do it again if want to zoom out
 - cursor keys - switch to the pane that's positioned next to the current one in
   the direction of the key you used
 - CTRL + cursor keys - resize the current pane
