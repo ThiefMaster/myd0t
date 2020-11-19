@@ -57,6 +57,12 @@ DISTROS = {
         'set_editor': ['update-alternatives', '--set', 'editor', '/usr/bin/vim.basic'],
         'vimrc': '/etc/vim/vimrc.local',
     },
+    'raspbian': {
+        'install': ['apt', 'install'],
+        'packages': {'git': 'git', 'zsh': 'zsh', 'tmux': 'tmux', 'vim': 'vim'},
+        'set_editor': ['update-alternatives', '--set', 'editor', '/usr/bin/vim.basic'],
+        'vimrc': '/etc/vim/vimrc.local',
+    },
 }
 
 

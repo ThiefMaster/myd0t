@@ -16,6 +16,7 @@ submodules) and run `myd0t.py` yourself.
 - Gentoo
 - Ubuntu
 - Debian
+- Raspbian (Raspberry Pi OS)
 - CentOS
 - Fedora
 - Arch Linux
