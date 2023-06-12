@@ -20,6 +20,7 @@ submodules) and run `myd0t.py` yourself.
 - CentOS
 - Fedora
 - Arch Linux
+- AlmaLinux
 
 Use the latest (stable) version, I do not care about ancient systems.
 

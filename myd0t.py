@@ -39,6 +39,12 @@ DISTROS = {
         'set_editor': None,
         'vimrc': '/etc/vimrc',
     },
+    'almalinux': {
+        'install': ['dnf', 'install'],
+        'packages': {'git': 'git', 'zsh': 'zsh', 'tmux': 'tmux', 'vim': 'vim'},
+        'set_editor': None,
+        'vimrc': '/etc/vimrc',
+    },
     'centos': {
         'install': ['yum', 'install'],
         'packages': {'git': 'git', 'zsh': 'zsh', 'tmux': 'tmux', 'vim': 'vim'},
