@@ -45,6 +45,12 @@ DISTROS = {
         'set_editor': None,
         'vimrc': '/etc/vimrc',
     },
+    'rocky': {
+        'install': ['dnf', 'install'],
+        'packages': {'git': 'git', 'zsh': 'zsh', 'tmux': 'tmux', 'vim': 'vim'},
+        'set_editor': None,
+        'vimrc': '/etc/vimrc',
+    },
     'centos': {
         'install': ['yum', 'install'],
         'packages': {'git': 'git', 'zsh': 'zsh', 'tmux': 'tmux', 'vim': 'vim'},

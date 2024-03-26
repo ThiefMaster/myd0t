@@ -21,6 +21,7 @@ submodules) and run `myd0t.py` yourself.
 - Fedora
 - Arch Linux
 - AlmaLinux
+- Rocky Linux
 
 Use the latest (stable) version, I do not care about ancient systems.
 
