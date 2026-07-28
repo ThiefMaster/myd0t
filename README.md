@@ -8,6 +8,14 @@ The easiest way to install myd0t is to use the self-extracting installer
 from the [releases][releases] page. It will automatically install any
 dependencies that are missing.
 
+To download the latest release, you can also use [this link][latest-release-download].
+
+If you want to have a single command to download and install it:
+
+```sh
+wget https://github.com/ThiefMaster/myd0t/releases/latest/download/myd0t.run -O /tmp/myd0t.run && chmod +x /tmp/myd0t.run && /tmp/myd0t.run
+```
+
 You can also clone this repo (with `--recursive` since it's using git
 submodules) and run `myd0t.py` yourself.
 
@@ -193,3 +201,4 @@ when re-running the myd0t installer.
 
 [releases]: https://github.com/ThiefMaster/myd0t/releases
 [zsh-config]: https://github.com/ThiefMaster/zsh-config
+[latest-release-download]: https://github.com/ThiefMaster/myd0t/releases/latest/download/myd0t.run
